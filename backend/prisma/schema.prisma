@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum ProductCondition {
+  NEW
+  USED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportType {
+  PRODUCT
+  USER
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  name          String
+  career        String?
+  photo         String?
+  role          Role           @default(BUYER)
+  isSuspended   Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  products      Product[]
+  orders        Order[]
+  reviewsGiven  Review[]       @relation("ReviewGiver")
+  reviewsReceived Review[]     @relation("ReviewReceiver")
+  notifications Notification[]
+  conversations ConversationParticipant[]
+  messages      Message[]
+  reportsGiven  Report[]       @relation("ReportGiver")
+  reportsReceived Report[]     @relation("ReportReceived")
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String
+  price       Float
+  category    String
+  condition   ProductCondition @default(USED)
+  images      String[]
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  seller      User             @relation(fields: [sellerId], references: [id])
+  sellerId    Int
+
+  orderItems  OrderItem[]
+  reviews     Review[]
+  conversations Conversation[]
+  reports     Report[]
+}
+
+model Order {
+  id        Int         @id @default(autoincrement())
+  status    OrderStatus @default(PENDING)
+  total     Float
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  buyer     User        @relation(fields: [buyerId], references: [id])
+  buyerId   Int
+
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  quantity  Int     @default(1)
+  price     Float
+
+  order     Order   @relation(fields: [orderId], references: [id])
+  orderId   Int
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  reviewer   User     @relation("ReviewGiver", fields: [reviewerId], references: [id])
+  reviewerId Int
+
+  seller     User     @relation("ReviewReceiver", fields: [sellerId], references: [id])
+  sellerId   Int
+
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  Int
+
+  @@unique([reviewerId, productId])
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             Int          @id @default(autoincrement())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId Int
+  user           User         @relation(fields: [userId], references: [id])
+  userId         Int
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  content        String
+  createdAt      DateTime     @default(now())
+  read           Boolean      @default(false)
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId Int
+
+  sender         User         @relation(fields: [senderId], references: [id])
+  senderId       Int
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+}
+
+model Report {
+  id         Int          @id @default(autoincrement())
+  type       ReportType
+  reason     String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+
+  reporter   User         @relation("ReportGiver", fields: [reporterId], references: [id])
+  reporterId Int
+
+  reportedUser   User?    @relation("ReportReceived", fields: [reportedUserId], references: [id])
+  reportedUserId Int?
+
+  product    Product?     @relation(fields: [productId], references: [id])
+  productId  Int?
+}
