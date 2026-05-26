@@ -6,4 +6,4 @@ RUN npm install
 COPY . .
 RUN npx prisma generate
 EXPOSE 4000
-CMD ["npm", "run", "dev"]
+CMD npx prisma migrate deploy && node prisma/seed.js && npm start
